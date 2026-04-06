@@ -36,9 +36,21 @@ app.MapGet("/weatherforecast", () =>
 .WithName("GetWeatherForecast")
 .WithOpenApi();
 
+app.MapPost("/groups", (Group group) =>
+{
+    return Results.Ok(new
+    {
+        message = $"Group '{group.Name}' created successfully "
+    });
+});
+
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 {
     public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+}
+public class Group
+{
+    public string Name { get; set; }
 }
