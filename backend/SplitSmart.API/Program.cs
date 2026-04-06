@@ -6,6 +6,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+List<Group> groups = new List<Group>();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -38,10 +39,16 @@ app.MapGet("/weatherforecast", () =>
 
 app.MapPost("/groups", (Group group) =>
 {
+    groups.Add(group);
     return Results.Ok(new
     {
-        message = $"Group '{group.Name}' created successfully "
+        message = $"Group '{group.Name}' created successfully",
+        data=group    
     });
+});
+app.MapGet("/groups", () =>
+{
+    return Results.Ok(groups);
 });
 
 app.Run();
