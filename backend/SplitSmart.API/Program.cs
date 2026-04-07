@@ -6,6 +6,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+int nextGroupId = 1;
 List<Group> groups = new List<Group>();
 
 // Configure the HTTP request pipeline.
@@ -39,7 +40,11 @@ app.MapGet("/weatherforecast", () =>
 
 app.MapPost("/groups", (Group group) =>
 {
+    group.Id = nextGroupId;
+    nextGroupId++;
+
     groups.Add(group);
+
     return Results.Ok(new
     {
         message = $"Group '{group.Name}' created successfully",
@@ -59,5 +64,6 @@ record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 }
 public class Group
 {
+    public int Id { get; set; }
     public string Name { get; set; }
 }
