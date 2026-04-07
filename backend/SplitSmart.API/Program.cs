@@ -1,3 +1,4 @@
+using System.Linq;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -56,6 +57,42 @@ app.MapGet("/groups", () =>
     return Results.Ok(groups);
 });
 
+
+
+app.MapGet("/groups/{id}", (int id) =>
+{
+    var group = groups.FirstOrDefault(g => g.Id == id);
+
+    if (group == null)
+        return Results.NotFound("Group not found ❌");
+
+    return Results.Ok(group);
+});
+
+app.MapPut("/groups/{id}", (int id, Group updatedGroup) =>
+{
+    var group = groups.FirstOrDefault(g => g.Id == id);
+
+    if (group == null)
+        return Results.NotFound("Group not found ❌");
+
+    group.Name = updatedGroup.Name;
+
+    return Results.Ok(group);
+});
+
+app.MapDelete("/groups/{id}", (int id) =>
+{
+    var group = groups.FirstOrDefault(g => g.Id == id);
+
+    if (group == null)
+        return Results.NotFound("Group not found ❌");
+
+    groups.Remove(group);
+
+    return Results.Ok("Group deleted successfully 🗑️");
+});
+
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
@@ -65,5 +102,5 @@ record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 public class Group
 {
     public int Id { get; set; }
-    public string Name { get; set; }
+   public string Name { get; set; } = string.Empty;
 }
