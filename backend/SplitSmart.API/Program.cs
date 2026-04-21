@@ -10,6 +10,9 @@ var app = builder.Build();
 int nextGroupId = 1;
 List<Group> groups = new List<Group>();
 
+int nextExpenseId = 1;
+List<Expense> expenses = new List<Expense>();
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -93,6 +96,30 @@ app.MapDelete("/groups/{id}", (int id) =>
     return Results.Ok("Group deleted successfully 🗑️");
 });
 
+app.MapPost("/expenses", (Expense expense) =>
+{
+    var groupExists = groups.Any(g => g.Id == expense.GroupId);
+
+    if (!groupExists)
+        return Results.NotFound("Group not found ❌");
+
+    expense.Id = nextExpenseId++;
+    expenses.Add(expense);
+
+    return Results.Ok(new
+    {
+        message = "Expense added successfully 🎉",
+        data = expense
+    });
+});
+
+app.MapGet("/groups/{groupId}/expenses", (int groupId) =>
+{
+    var groupExpenses = expenses.Where(e => e.GroupId == groupId).ToList();
+    return Results.Ok(groupExpenses);
+});
+
+
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
@@ -103,4 +130,12 @@ public class Group
 {
     public int Id { get; set; }
    public string Name { get; set; } = string.Empty;
+}
+public class Expense
+{
+    public int Id { get; set; }
+    public int GroupId { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public string PaidBy { get; set; } = string.Empty;
 }
