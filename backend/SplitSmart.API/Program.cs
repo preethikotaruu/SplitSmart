@@ -96,8 +96,21 @@ app.MapDelete("/groups/{id}", (int id) =>
     return Results.Ok("Group deleted successfully 🗑️");
 });
 
+
 app.MapPost("/expenses", (Expense expense) =>
 {
+    if (string.IsNullOrWhiteSpace(expense.Title))
+        return Results.BadRequest("Title is required ❌");
+
+    if (expense.Amount <= 0)
+        return Results.BadRequest("Amount must be greater than 0 ❌");
+
+    if (string.IsNullOrWhiteSpace(expense.PaidBy))
+        return Results.BadRequest("PaidBy is required ❌");
+
+    if (expense.SplitAmong == null || expense.SplitAmong.Count == 0)
+        return Results.BadRequest("SplitAmong must have at least one person ❌");
+
     var groupExists = groups.Any(g => g.Id == expense.GroupId);
 
     if (!groupExists)
@@ -119,6 +132,44 @@ app.MapGet("/groups/{groupId}/expenses", (int groupId) =>
     return Results.Ok(groupExpenses);
 });
 
+app.MapGet("/groups/{groupId}/balances", (int groupId) =>
+{
+    var groupExpenses = expenses.Where(e => e.GroupId == groupId).ToList();
+
+    if (!groupExpenses.Any())
+        return Results.Ok(new List<BalanceResult>());
+
+    var balances = new Dictionary<string, decimal>();
+
+    foreach (var expense in groupExpenses)
+    {
+        if (expense.SplitAmong == null || expense.SplitAmong.Count == 0)
+            continue;
+
+        var share = expense.Amount / expense.SplitAmong.Count;
+
+        if (!balances.ContainsKey(expense.PaidBy))
+            balances[expense.PaidBy] = 0;
+
+        balances[expense.PaidBy] += expense.Amount;
+
+        foreach (var person in expense.SplitAmong)
+        {
+            if (!balances.ContainsKey(person))
+                balances[person] = 0;
+
+            balances[person] -= share;
+        }
+    }
+
+    var result = balances.Select(b => new BalanceResult
+    {
+        Person = b.Key,
+        NetBalance = b.Value
+    }).ToList();
+
+    return Results.Ok(result);
+});
 
 app.Run();
 
@@ -138,4 +189,12 @@ public class Expense
     public string Title { get; set; } = string.Empty;
     public decimal Amount { get; set; }
     public string PaidBy { get; set; } = string.Empty;
+    public List<string> SplitAmong { get; set; } = new List<string>();
 }
+
+public class BalanceResult
+{
+    public string Person { get; set; } = string.Empty;
+    public decimal NetBalance { get; set; }
+}
+
