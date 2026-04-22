@@ -171,6 +171,80 @@ app.MapGet("/groups/{groupId}/balances", (int groupId) =>
     return Results.Ok(result);
 });
 
+app.MapGet("/groups/{groupId}/settlements", (int groupId) =>
+{
+    var groupExpenses = expenses.Where(e => e.GroupId == groupId).ToList();
+
+    if (!groupExpenses.Any())
+        return Results.Ok(new List<SettlementResult>());
+
+    var balances = new Dictionary<string, decimal>();
+
+    foreach (var expense in groupExpenses)
+    {
+        if (expense.SplitAmong == null || expense.SplitAmong.Count == 0)
+            continue;
+
+        var share = expense.Amount / expense.SplitAmong.Count;
+
+        if (!balances.ContainsKey(expense.PaidBy))
+            balances[expense.PaidBy] = 0;
+
+        balances[expense.PaidBy] += expense.Amount;
+
+        foreach (var person in expense.SplitAmong)
+        {
+            if (!balances.ContainsKey(person))
+                balances[person] = 0;
+
+            balances[person] -= share;
+        }
+    }
+
+    var creditors = balances
+        .Where(b => b.Value > 0)
+        .Select(b => new { Person = b.Key, Amount = b.Value })
+        .ToList();
+
+    var debtors = balances
+        .Where(b => b.Value < 0)
+        .Select(b => new { Person = b.Key, Amount = Math.Abs(b.Value) })
+        .ToList();
+
+    var settlements = new List<SettlementResult>();
+
+    int i = 0, j = 0;
+
+    while (i < debtors.Count && j < creditors.Count)
+    {
+        var debtor = debtors[i];
+        var creditor = creditors[j];
+
+        var settleAmount = Math.Min(debtor.Amount, creditor.Amount);
+
+        settlements.Add(new SettlementResult
+        {
+            FromPerson = debtor.Person,
+            ToPerson = creditor.Person,
+            Amount = settleAmount
+        });
+
+        debtor = new { debtor.Person, Amount = debtor.Amount - settleAmount };
+        creditor = new { creditor.Person, Amount = creditor.Amount - settleAmount };
+
+        debtors[i] = debtor;
+        creditors[j] = creditor;
+
+        if (debtors[i].Amount == 0)
+            i++;
+
+        if (creditors[j].Amount == 0)
+            j++;
+    }
+
+    return Results.Ok(settlements);
+});
+
 app.Run();
 
 record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
@@ -198,3 +272,9 @@ public class BalanceResult
     public decimal NetBalance { get; set; }
 }
 
+public class SettlementResult
+{
+    public string FromPerson { get; set; } = string.Empty;
+    public string ToPerson { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+}
