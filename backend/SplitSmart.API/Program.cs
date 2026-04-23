@@ -1,12 +1,12 @@
 using System.Linq;
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(args);//configure the webapp
 
 // Add services to the container.
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddEndpointsApiExplorer(); //“Find all my APIs”
+builder.Services.AddSwaggerGen(); //“Show those APIs in Swagger UI”
 
-var app = builder.Build();
+var app = builder.Build(); //“Take everything we configured in builder and create the actual running app”
 int nextGroupId = 1;
 List<Group> groups = new List<Group>();
 
@@ -14,7 +14,7 @@ int nextExpenseId = 1;
 List<Expense> expenses = new List<Expense>();
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment()) //Only enable Swagger in development (local machine), not in production”
 {
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -111,10 +111,20 @@ app.MapPost("/expenses", (Expense expense) =>
     if (expense.SplitAmong == null || expense.SplitAmong.Count == 0)
         return Results.BadRequest("SplitAmong must have at least one person ❌");
 
-    var groupExists = groups.Any(g => g.Id == expense.GroupId);
+    var group = groups.FirstOrDefault(g => g.Id == expense.GroupId);
 
-    if (!groupExists)
+    if (group == null)
         return Results.NotFound("Group not found ❌");
+
+    if (!group.Members.Contains(expense.PaidBy))
+        return Results.BadRequest("PaidBy must be a valid group member ❌");
+
+    var invalidMembers = expense.SplitAmong
+        .Where(person => !group.Members.Contains(person))
+        .ToList();
+
+    if (invalidMembers.Any())
+        return Results.BadRequest($"These people are not in the group: {string.Join(", ", invalidMembers)} ❌");
 
     expense.Id = nextExpenseId++;
     expenses.Add(expense);
@@ -244,6 +254,36 @@ app.MapGet("/groups/{groupId}/settlements", (int groupId) =>
 
     return Results.Ok(settlements);
 });
+app.MapPost("/groups/{id}/members", (int id, List<string> members) =>
+{
+    var group = groups.FirstOrDefault(g => g.Id == id);
+
+    if (group == null)
+        return Results.NotFound("Group not found ❌");
+
+    foreach (var member in members)
+    {
+        if (!group.Members.Contains(member))
+        {
+            group.Members.Add(member);
+        }
+    }
+
+    return Results.Ok(new
+    {
+        message = "Members added successfully 🎉",
+        data = group
+    });
+});
+app.MapGet("/groups/{id}/members", (int id) =>
+{
+    var group = groups.FirstOrDefault(g => g.Id == id);
+
+    if (group == null)
+        return Results.NotFound("Group not found ❌");
+
+    return Results.Ok(group.Members);
+});
 
 app.Run();
 
@@ -254,7 +294,8 @@ record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
 public class Group
 {
     public int Id { get; set; }
-   public string Name { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public List<string> Members { get; set; } = new List<string>();
 }
 public class Expense
 {
